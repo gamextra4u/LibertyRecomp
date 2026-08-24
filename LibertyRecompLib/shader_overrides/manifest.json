@@ -135,6 +135,33 @@
       "entry_point": "shaderMain",
       "specialization_constants_mask": "0x00000702",
       "defines": ["GTA4_RECOMP"]
+    },
+    {
+      "stage": "vertex",
+      "hash": "0x156BAD4A9EE62726",
+      "language": "hlsl",
+      "source": "bink/vs_bink.hlsl",
+      "entry_point": "shaderMain",
+      "specialization_constants_mask": "0x00000000",
+      "defines": ["GTA4_RECOMP"]
+    },
+    {
+      "stage": "pixel",
+      "hash": "0x9E76B68B60127349",
+      "language": "hlsl",
+      "source": "bink/ps_bink.hlsl",
+      "entry_point": "shaderMain",
+      "specialization_constants_mask": "0x00000702",
+      "defines": ["GTA4_RECOMP"]
+    },
+    {
+      "stage": "pixel",
+      "hash": "0xA6C9E2B8B2A59D7A",
+      "language": "hlsl",
+      "source": "bink/ps_bink_no_alpha.hlsl",
+      "entry_point": "shaderMain",
+      "specialization_constants_mask": "0x00000702",
+      "defines": ["GTA4_RECOMP"]
     }
   ]
 }

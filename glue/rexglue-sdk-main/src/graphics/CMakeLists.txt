@@ -148,9 +148,12 @@ add_library(rex::gpu-xenos ALIAS rexgpu-xenos)
 rexgpu_configure_plugin(rexgpu-xenos gpu-xenos)
 
 if(REXGLUE_USE_VULKAN)
-    set(GTA4_NATIVE_SHADER_CACHE_ROOT "${CMAKE_SOURCE_DIR}/LibertyRecompLib")
-    set(GTA4_NATIVE_SMOLV_ROOT "${CMAKE_SOURCE_DIR}/tools/XenosRecomp/thirdparty/smol-v/source")
-    set(GTA4_NATIVE_ZSTD_ROOT "${CMAKE_SOURCE_DIR}/tools/XenosRecomp/thirdparty/zstd")
+    set(GTA4_NATIVE_SHADER_CACHE_ROOT
+        "${LIBERTY_RECOMP_WORKSPACE_ROOT}/LibertyRecompLib")
+    set(GTA4_NATIVE_SMOLV_ROOT
+        "${LIBERTY_RECOMP_WORKSPACE_ROOT}/tools/XenosRecomp/thirdparty/smol-v/source")
+    set(GTA4_NATIVE_ZSTD_ROOT
+        "${LIBERTY_RECOMP_WORKSPACE_ROOT}/tools/XenosRecomp/thirdparty/zstd")
     set(GTA4_NATIVE_SHADER_OVERRIDE_ROOT
         "${GTA4_NATIVE_SHADER_CACHE_ROOT}/shader_overrides")
     set(GTA4_NATIVE_SHADER_OVERRIDE_MANIFEST
@@ -183,18 +186,40 @@ if(REXGLUE_USE_VULKAN)
     else()
         set(GTA4_NATIVE_DXC_ARCH x64)
     endif()
-    set(GTA4_NATIVE_DXC_ROOT "${CMAKE_SOURCE_DIR}/tools/XenosRecomp/thirdparty/dxc-bin")
+    set(GTA4_NATIVE_DXC_ROOT
+        "${LIBERTY_RECOMP_WORKSPACE_ROOT}/tools/XenosRecomp/thirdparty/dxc-bin")
+    set(GTA4_NATIVE_DXC_LIBRARY_PATH "" CACHE PATH
+        "Directory containing a DXC shared library compatible with gta4-native shader overrides")
+    set(GTA4_NATIVE_SHADER_COMMON
+        "${GTA4_NATIVE_SHADER_OVERRIDE_ROOT}/xenos_shader_common.h")
     if(CMAKE_HOST_WIN32)
         set(GTA4_NATIVE_DXC
             "${GTA4_NATIVE_DXC_ROOT}/bin/${GTA4_NATIVE_DXC_ARCH}/dxc.exe")
     elseif(CMAKE_HOST_APPLE)
         set(GTA4_NATIVE_DXC
             "${GTA4_NATIVE_DXC_ROOT}/bin/${GTA4_NATIVE_DXC_ARCH}/dxc-macos")
-        set(GTA4_NATIVE_DXC_LIBRARY_PATH
-            "${GTA4_NATIVE_DXC_ROOT}/lib/${GTA4_NATIVE_DXC_ARCH}")
+        if(NOT GTA4_NATIVE_DXC_LIBRARY_PATH)
+            # The bundled DXC 1.8 crashes in SPIRV-Tools AggressiveDCE for GTA IV's
+            # Bink pixel shaders. Prefer a separately installed newer DXC when one
+            # is available, while retaining the bundled compiler as a fallback.
+            find_library(GTA4_NATIVE_HOST_DXCOMPILER
+                NAMES dxcompiler libdxcompiler
+                PATHS /usr/local/lib /opt/homebrew/lib
+                NO_DEFAULT_PATH
+                NO_CACHE)
+            if(GTA4_NATIVE_HOST_DXCOMPILER)
+                get_filename_component(GTA4_NATIVE_DXC_LIBRARY_PATH
+                    "${GTA4_NATIVE_HOST_DXCOMPILER}" DIRECTORY)
+            else()
+                set(GTA4_NATIVE_DXC_LIBRARY_PATH
+                    "${GTA4_NATIVE_DXC_ROOT}/lib/${GTA4_NATIVE_DXC_ARCH}")
+            endif()
+        endif()
     elseif(CMAKE_HOST_UNIX AND GTA4_NATIVE_DXC_ARCH STREQUAL "x64")
         set(GTA4_NATIVE_DXC "${GTA4_NATIVE_DXC_ROOT}/bin/x64/dxc-linux")
-        set(GTA4_NATIVE_DXC_LIBRARY_PATH "${GTA4_NATIVE_DXC_ROOT}/lib/x64")
+        if(NOT GTA4_NATIVE_DXC_LIBRARY_PATH)
+            set(GTA4_NATIVE_DXC_LIBRARY_PATH "${GTA4_NATIVE_DXC_ROOT}/lib/x64")
+        endif()
     endif()
 
     set(GTA4_NATIVE_SHADER_OVERRIDE_COMMAND
@@ -227,6 +252,7 @@ if(REXGLUE_USE_VULKAN)
             "${GTA4_NATIVE_SHADER_OVERRIDE_MANIFEST}"
             "${GTA4_NATIVE_SHADER_OVERRIDE_COMPILER}"
             "${GTA4_NATIVE_SHADER_OVERRIDE_ROOT}/shader_override_cache.h"
+            "${GTA4_NATIVE_SHADER_COMMON}"
         DEPFILE "${GTA4_NATIVE_SHADER_OVERRIDE_DEPFILE}"
         COMMENT "Compiling GTA IV hash-specific shader overrides"
         VERBATIM)
@@ -263,7 +289,7 @@ if(REXGLUE_USE_VULKAN)
         "${GTA4_NATIVE_SMOLV_ROOT}"
     )
     target_compile_definitions(rexgpu-gta4-native PRIVATE
-        GTA4_NATIVE_FONT_ASSET_ROOT="${CMAKE_SOURCE_DIR}/LibertyRecompLib/font_atlases"
+        GTA4_NATIVE_FONT_ASSET_ROOT="${LIBERTY_RECOMP_WORKSPACE_ROOT}/LibertyRecompLib/font_atlases"
     )
     target_link_libraries(rexgpu-gta4-native PRIVATE
         libzstd_static
