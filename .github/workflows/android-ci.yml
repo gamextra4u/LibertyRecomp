@@ -14,11 +14,41 @@ jobs:
       ANDROID_SDK_ROOT: /usr/local/android-sdk
       ANDROID_NDK_VERSION: 27.2.12479018
     steps:
-      - name: Checkout
+      - name: Checkout (no submodules)
         uses: actions/checkout@v4
         with:
-          submodules: true
           fetch-depth: 0
+
+      - name: Init Android-related submodules only (shallow)
+        run: |
+          set -eux
+          echo "Syncing submodule configuration"
+          git submodule sync --recursive
+          git config --global advice.detachedHead false
+
+          # Android-relevant submodules determined by repo analysis:
+          # - thirdparty/SDL            (SDL3 used by Android native code)
+          # - glue/rexglue-sdk-main    (ReXGlue SDK used by native code)
+          # - thirdparty/stb           (small header-only used by native code)
+          # - thirdparty/imgui         (UI library referenced by native code)
+          # Adjust this list if your build requires additional submodules.
+
+          for path in thirdparty/SDL glue/rexglue-sdk-main thirdparty/stb thirdparty/imgui; do
+            if git config -f .gitmodules --get "submodule.$path.url" > /dev/null 2>&1; then
+              echo "Initializing submodule: $path"
+              # Shallow clone to reduce CI time and bandwidth
+              git submodule update --init --depth 1 "$path" || true
+            else
+              echo "Submodule $path not found in .gitmodules, skipping"
+            fi
+          done
+
+          # If the ReXGlue SDK was initialised, initialise its nested submodules shallowly too.
+          if [ -d glue/rexglue-sdk-main ]; then
+            echo "Syncing nested submodules inside glue/rexglue-sdk-main"
+            git -C glue/rexglue-sdk-main submodule sync --recursive || true
+            git -C glue/rexglue-sdk-main submodule update --init --depth 1 || true
+          fi
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -61,7 +91,8 @@ jobs:
         working-directory: os/android
         run: |
           chmod +x ./gradlew
-          ./gradlew assembleDebug --no-daemon
+          # Use parallel Gradle workers and moderate JVM heap to improve CI build throughput
+          ./gradlew assembleDebug --no-daemon -Porg.gradle.parallel=true -Dorg.gradle.jvmargs="-Xmx3g -Dfile.encoding=UTF-8" --stacktrace
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
